@@ -1,0 +1,297 @@
+---
+title: "Homework3Quarto"
+format: html
+editor: visual
+---
+
+## Task 1: Conceptual Questions
+
+**1. If your working directory is myfolder/homework/, what relative path would you specify to get the file located at myfolder/MyData.csv?** \> You would specify ../MyData.csv.
+
+**2. What are the major benefits of using R projects?** \> Some of the major benefits of using R projects are the following: 1. R projects follow an organized structure 2. Each R project has its own working director to prevent conflicts and 3. R projects are easily reproducible.
+
+**3. What is git and what is github?** \> Git tracks changes while GitHub hosts repositories. GitHub is within Git.
+
+**4. What are the two main differences between a tibble and a data.frame?** \> Tibbles print a limited number of rows while data.frame prints the rows and columns in full. The tibble function always returns a tibble while a data.frame can be manipulated to produce vectors and/or matrices as well as entire data frames.
+
+**5. Rewrite the nested function listed in the pdf homework 3 instructions using baseR's chaining operator.** \> iris %\>% as_tibble() %\>% select(starts_with("Petal"), Species) %\>% filter(Petal.Length \< 1.55) %\>% arrange(Species)
+
+**6. What is meant by long format data and wide format data? Which do we generally prefer for statistical analysis?** \> In long format data, each row represents a single observation. In wide format data, each row represents a single entity. We generally prefer long format data for statistical analysis.
+
+## Task 2: Reading Delimited Data
+
+### Glass Data
+
+```{r}
+# Install packages
+install.packages("tidyverse")
+install.packages("DBI")
+install.packages("RSQLite")
+```
+
+```{r}
+# Load packages
+library(tidyverse)
+library(readxl)
+library(dplyr)
+library(readr)
+library(DBI)
+library(RSQLite)
+```
+
+#### 1. Read in the data
+```{r}
+# Read the data directly from the URL
+url1 <- "https://www4.stat.ncsu.edu/~online/datasets/glass.data"
+
+# Add the column names
+glass <- read_csv(url1, col_names = c("Id", "RI", "Na", "Mg", "Al", "Si", "K", "Ca", "Ba", "Fe", "Type_of_glass"))
+
+# Print the tibble
+glass
+```
+
+#### 2. Start a chain to overwrite using mutate()
+
+```{r}
+# Start a chain to overwrite the Type_of_glass variable using mutate()
+glass <- glass %>%
+  mutate(Type_of_glass = if_else(Type_of_glass==1, "building_windows_float_processed",
+                                 if_else(Type_of_glass==2, "building_windows_non_float_processed",
+                                         if_else(Type_of_glass==3, "vehicle_windows_float_processed",
+                                                 if_else(Type_of_glass==4, "vehicle_windows_non_float_processed",
+                                                         if_else(Type_of_glass==5, "containers",
+                                                                 if_else(Type_of_glass==6, "tableware", "headlamps")))))))
+```
+
+#### 3. Continue your chain and keep only specific observations
+
+```{r}
+# Keep only observations where the Fe variable is less than 0.2 and where the type of glass is either "tableware" or "headlamp"
+
+glass2 <- glass %>%
+  mutate(Type_of_glass = if_else(Type_of_glass==1, "building_windows_float_processed",
+                                 if_else(Type_of_glass==2, "building_windows_non_float_processed",
+                                         if_else(Type_of_glass==3, "vehicle_windows_float_processed",
+                                                 if_else(Type_of_glass==4, "vehicle_windows_non_float_processed",
+                                                         if_else(Type_of_glass==5, "containers",
+                                                                 if_else(Type_of_glass==6, "tableware", "headlamps"))))))) %>%
+  filter(Fe < 0.2 & (Type_of_glass=="tableware" | Type_of_glass=="headlamps"))
+```
+
+### Yeast Data
+
+#### 1. Read in the data
+
+```{r}
+# Read the data in from the URL
+url2 <- "https://www4.stat.ncsu.edu/~online/datasets/yeast.data"
+
+# Assign the data to an object
+yeast <- read_delim(url2, delim = "  ", col_names = FALSE)
+
+# Add column names
+colnames(yeast) <- c("seq_name", "mcg", "gvh", "alm", "mit", "erl", "pox", "vac", "nuc", "class")
+
+# Print the tibble
+yeast
+```
+
+#### 2. Start a chain that removes specific columns
+
+```{r}
+yeast2 <- yeast %>%
+  select(-seq_name) %>%
+  select(-nuc)
+```
+
+#### 3. Continue your chain to add corresponding columns
+
+```{r}
+yeast3 <- yeast %>%
+  select(-seq_name) %>%
+  select(-nuc) %>%
+  group_by(class) %>%
+  mutate(across(c(mcg, gvh, alm, mit, erl, pox, vac), list(mean = mean, median = median), .names = "{.col}_{.fn}")) %>%
+  ungroup()
+```
+
+## Task 3: Combining Excel and Delimited Data
+
+#### 1. Read in the excel version of the white wine data set using readxl
+
+```{r}
+# Import the data from the first sheet
+excel1 <- "C:/Users/natal/Desktop/NCSU/summer 24/ST558/Repos/Homework3/white-wine.xlsx"
+
+# Read the first sheet of the file
+whitewine <- read_excel(excel1)
+
+# Print out the tibble
+whitewine
+```
+
+#### 2. Rename the variables
+
+```{r}
+# Read in the variables names from the second sheet
+col_names <- read_excel(excel1, sheet = 2, range = "A1:A13")
+col_names <- col_names[[1]]
+
+# Overwrite the current column names
+colnames(whitewine) <- col_names
+
+whitewine
+```
+
+#### 3. Add a column to indicate the wines are white
+
+```{r}
+whitewine <- whitewine %>%
+  mutate(type = 'white')
+```
+
+#### 4. Read in the excel version of the red wine data set using readr
+
+```{r}
+# Read this in using the readr package
+csv1 <- "C:/Users/natal/Desktop/NCSU/summer 24/ST558/Repos/Homework3/red-wine.csv"
+
+redwine <- read_delim(csv1, delim = ";")
+
+# Replace the variable names
+col_names <- read_excel(excel1, sheet = 2, range = "A1:A13")
+col_names <- col_names[[1]]
+colnames(redwine) <- col_names
+
+# Append a column denoting the type as "red"
+redwine <- redwine %>%
+  mutate(type = 'red')
+```
+
+#### 5. Combine these two data sets
+
+```{r}
+combined_wine <- bind_rows(whitewine, redwine)
+```
+
+#### 6. Filter the data
+
+```{r}
+filtered_wine <- combined_wine %>%
+  filter(quality > 6.5, alcohol < 132)
+```
+
+#### 7. Continue your chain to now sort the data
+
+```{r}
+sorted_wine <- filtered_wine %>%
+  arrange(desc(quality))
+
+sorted_wine
+```
+
+#### 8. Continue your chain to select only specific variables
+
+```{r}
+selected_wine <- sorted_wine %>%
+  select(contains("acid"), alcohol, type, quality)
+```
+
+#### 9. Continue your chain to add mean and standard deviation
+
+```{r}
+new_wine <- selected_wine %>%
+  group_by(quality) %>%
+  summarize(mean_alcohol = mean(alcohol), sd_alcohol = sd(alcohol))
+```
+
+## Task 4: Database Practice
+
+#### 1. Connect to the database and then look at all of the tables in the database
+
+```{r}
+lahman_db <- "C:/Users/natal/Desktop/NCSU/summer 24/ST558/Repos/Homework3/lahman.db"
+
+con <- dbConnect(RSQLite::SQLite(), dbname = lahman_db)
+
+```
+
+#### 2. Return all of the data from the Teams table for the year 2015
+
+```{r}
+# Construct the tabl
+Teams <- tbl(con, "Teams")
+
+# Filter for year 2015
+Teams_2015 <- Teams %>%
+  filter(year == 2015) %>%
+  collect()
+
+# Return all of the specified data
+Teams_2015
+```
+
+#### 3. Repeat the above with the sql() function within tbl()
+
+```{r}
+Teams_2015 <- tbl(con, sql("SELECT * FROM Teams WHERE year = 2015"))
+
+Teams_2015
+```
+
+#### 4. Return all of the hall of fame players
+
+```{r}
+hof <- tbl(con, "HallOfFame")
+
+hof_players <- hof %>%
+  filter(inducted == "yes") %>%
+  select(playerID, yearID, category)
+
+hof_players
+```
+
+#### 5. Combine the table
+
+```{r}
+ppl <- tbl(con, "People")
+
+combined_table <- hof %>%
+  filter(inducted == "yes") %>%
+  left_join(ppl, by = "playerID") %>%
+  select(nameFirst, nameLast, yearID, category)
+
+combined_table
+```
+
+#### 6. Return only the specified columns
+
+```{r}
+# Return only the playerID, G, W, and L columns from the Managers table
+Managers <- tbl(con, "Managers")
+
+filtered_managers <- Managers %>%
+  select(playerID, G, W, L)
+
+# Determine the overall win/loss records for each of these HOF managers and sort
+win_loss <- filtered_managers %>%
+  group_by(playerID) %>%
+  summarize(total_games = sum(G, na.rm = TRUE),
+            total_wins = sum(W, na.rm = TRUE),
+            total_losses = sum(L, na.rm = TRUE),
+            w_l = total_wins/total_losses,
+            Total_W/G_managed = total_wins/total_games) %>%
+  arrange(desc(Total_W/G_managed))
+```
+
+#### 7. Return information for only the people that managed a team and were inducted into the HOF
+
+```{r}
+hof_managers_join <- inner_join(Managers, hof, by = "playerID")
+
+hof_managers <- hof_managers_join %>%
+  filter(inducted == "yes")
+
+hof_managers
+```
