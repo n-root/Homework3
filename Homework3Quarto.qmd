@@ -36,7 +36,7 @@ library(readxl)
 library(dplyr)
 library(readr)
 library(DBI)
-library(RSQLite)
+#library(RSQLite)
 ```
 
 #### 1. Read in the data
